@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laura · ropa que llega volando</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <!-- ===================== FRONT: lo que ve Camila ===================== -->
+  <header class="barra">
+    <a class="logo" href="#">laura<span>.</span></a>
+    <nav class="menu">
+      <a href="#coleccion">Colección</a>
+      <a href="#lau">Pregúntale a Lau</a>
+    </nav>
+    <span class="sello">🤖 con IA en Bedrock</span>
+  </header>
+
+  <section class="portada">
+    <div class="portada-texto">
+      <p class="antetitulo">Colección Medellín · otoño 2026</p>
+      <h1>Ropa que <em>llega volando</em>.</h1>
+      <p class="bajada">Camisetas, gorras y buzos hechos en Colombia. Ahora la tienda tiene asistente: <b>Lau</b> responde tus dudas de precios, tallas y envíos con un modelo de Amazon Bedrock.</p>
+      <div class="portada-botones">
+        <a class="boton" href="#lau">Pregúntale a Lau</a>
+        <a class="boton boton-claro" href="#coleccion">Ver la colección</a>
+      </div>
+    </div>
+    <div class="portada-arte" aria-hidden="true">
+      <div class="burbuja b1"></div><div class="burbuja b2"></div>
+      <svg viewBox="0 0 220 220" class="arte-buzo"><use href="#ico-buzo"/></svg>
+      <svg viewBox="0 0 220 220" class="arte-gorra"><use href="#ico-gorra"/></svg>
+      <svg viewBox="0 0 220 220" class="arte-camiseta"><use href="#ico-camiseta"/></svg>
+    </div>
+  </section>
+
+  <section id="coleccion" class="seccion">
+    <div class="seccion-titulo">
+      <h2>La colección</h2>
+      <p>Toca una prenda y Lau te cuenta de ella.</p>
+    </div>
+    <div class="productos" id="productos"></div>
+  </section>
+
+  <section id="lau" class="seccion dos-columnas">
+    <div class="tarjeta chat">
+      <h2>Pregúntale a Lau</h2>
+      <p class="chat-sub">Asistente de servicio al cliente · responde un modelo de IA</p>
+      <div class="hilo" id="hilo" aria-live="polite"></div>
+      <div class="atajos" id="atajos">
+        <button type="button">¿Hacen envíos a Bogotá?</button>
+        <button type="button">Quiero 2 camisetas y 1 gorra, ¿cuánto es?</button>
+        <button type="button">¿Venden zapatos?</button>
+        <button type="button">¿Quién ganó el mundial de 2022?</button>
+      </div>
+      <form class="caja" id="forma">
+        <input id="caja" autocomplete="off" maxlength="600" placeholder="Escribe tu pregunta…" aria-label="Tu pregunta">
+        <button class="boton" id="enviar" type="submit">Enviar</button>
+      </form>
+      <button class="enlace" id="nuevo" type="button">Empezar una charla nueva</button>
+    </div>
+
+    <aside class="tarjeta viaje">
+      <h2>Así viajó tu pregunta</h2>
+      <ol class="pasos" id="pasos">
+        <li data-paso="0"><b>Tu navegador</b><span>el FRONT manda toda la charla en JSON</span></li>
+        <li data-paso="1"><b>Function URL</b><span>la puerta HTTPS de la Lambda</span></li>
+        <li data-paso="2"><b>Lambda</b><span>el BACK junta instrucciones + catálogo + charla</span></li>
+        <li data-paso="3"><b>Amazon Bedrock</b><span>el modelo escribe la respuesta, token por token</span></li>
+        <li data-paso="4"><b>De vuelta</b><span>la respuesta llega a tu pantalla</span></li>
+      </ol>
+      <div class="medidor">
+        <div><small>tokens que leyó</small><strong id="m-entrada">—</strong></div>
+        <div><small>tokens que escribió</small><strong id="m-salida">—</strong></div>
+        <div><small>el modelo tardó</small><strong id="m-ms">—</strong></div>
+        <div><small>ida y vuelta</small><strong id="m-total">—</strong></div>
+      </div>
+      <div class="mochila" id="mochila" aria-hidden="true"></div>
+      <p class="pista"><b id="cupo">0 de 12</b> mensajes viajan en cada pregunta: el modelo no recuerda nada, la página le manda la charla completa.</p>
+      <p class="detalle" id="detalle">modelo — · temperatura — · tokens de esta charla: 0</p>
+    </aside>
+  </section>
+
+  <footer class="pie">
+    <p><b>laura.</b> · página en <b>S3</b> entregada por <b>CloudFront</b> · el chat por <b>Function URL → Lambda → Amazon Bedrock</b></p>
+    <p class="pie-curso">Esumer · Cloud Computing, Redes y Ciberseguridad · laboratorio del chatbot</p>
+  </footer>
+
+  <!-- dibujos de las prendas -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="ico-camiseta" viewBox="0 0 220 220"><path d="M70 40 L40 58 L20 98 L52 112 L60 96 L60 190 L160 190 L160 96 L168 112 L200 98 L180 58 L150 40 C142 58 126 66 110 66 C94 66 78 58 70 40 Z" fill="currentColor"/><path d="M84 40 C92 52 100 56 110 56 C120 56 128 52 136 40" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="6" stroke-linecap="round"/><text x="110" y="140" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-weight="800" font-size="30" fill="rgba(255,255,255,.9)">laura.</text></symbol>
+    <symbol id="ico-gorra" viewBox="0 0 220 220"><path d="M40 130 C40 80 72 50 112 50 C152 50 180 80 180 130 Z" fill="currentColor"/><path d="M30 130 L196 130 C200 130 202 138 196 142 C170 156 120 160 70 150 L30 142 C24 140 24 130 30 130 Z" fill="rgba(0,0,0,.22)"/><circle cx="112" cy="52" r="8" fill="rgba(0,0,0,.25)"/><path d="M112 54 L112 128" stroke="rgba(0,0,0,.14)" stroke-width="4"/><text x="112" y="112" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-weight="800" font-size="20" fill="rgba(255,255,255,.9)">L.</text></symbol>
+    <symbol id="ico-buzo" viewBox="0 0 220 220"><path d="M76 34 L44 52 L22 140 L48 150 L60 104 L60 196 L160 196 L160 104 L172 150 L198 140 L176 52 L144 34 C138 48 126 56 110 56 C94 56 82 48 76 34 Z" fill="currentColor"/><path d="M80 36 C80 70 140 70 140 36" fill="rgba(0,0,0,.18)"/><path d="M96 60 L96 96 M124 60 L124 96" stroke="rgba(255,255,255,.75)" stroke-width="4" stroke-linecap="round"/><rect x="78" y="140" width="64" height="34" rx="10" fill="rgba(0,0,0,.15)"/></symbol>
+  </svg>
+
+  <!-- config.js lo crea Terraform con la dirección de TU back -->
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

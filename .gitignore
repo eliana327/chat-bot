@@ -1,0 +1,63 @@
+# =====================================================================
+#  Lo que NUNCA se sube a GitHub
+#  (git lo ignora: no aparece en git status ni se va en el git push)
+# =====================================================================
+
+# ---------- Terraform ----------
+# los binarios de los proveedores que descarga terraform init (cientos de MB)
+.terraform/
+**/.terraform/*
+# el estado: describe toda tu infraestructura (y puede tener datos sensibles)
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+# planes guardados y lo que escribe el pipeline
+*.tfplan
+tfplan
+plan.txt
+respuesta.json
+# variables con tus datos y archivos de pruebas locales
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# si Terraform se cae, deja este registro
+crash.log
+crash.*.log
+.terraformrc
+terraform.rc
+# el zip de la Lambda (lo arma Terraform en cada plan y apply)
+back.zip
+*.zip
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ---------- Node ----------
+node_modules/
+
+# ---------- credenciales: JAMÁS ----------
+.aws/
+*.pem
+*.key
+.env
+.env.*
+credentials
+credentials.csv
+*accessKeys*.csv
+
+# ---------- basura del sistema y del editor ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+*.tmp
+*.swp
+*~
+.vscode/
+.idea/

@@ -1,0 +1,202 @@
+# =====================================================================
+#  El pipeline de despliegue del chatbot de la tienda de Laura
+#
+#  Todo lo que el pipeline necesita saber está en PARÁMETROS (más abajo, en env:).
+#  El único dato tuyo es el número de cuenta: va en la variable AWS_ACCOUNT_ID
+#  del repositorio (GitHub → Settings → Secrets and variables → Actions → Variables);
+#  el bootstrap te lo muestra al terminar.
+#
+#  En cada PULL REQUEST (revisar antes de unir, sin desplegar nada):
+#    Revisar   → ¿el back y el front están bien escritos? + terraform plan (qué cambiaría)
+#
+#  En cada PUSH A MAIN (desplegar):
+#    Desplegar → terraform apply (terraform/back y terraform/front)
+#                y la prueba EN VIVO: ¿abre la tienda? ¿Lau responde?
+#
+#  Cambiar lo que sabe Lau (back/catalogo.txt) o cómo habla (back/instrucciones.txt)
+#  es un cambio como cualquier otro: rama → pull request → merge → el pipeline lo despliega.
+# =====================================================================
+name: Pipeline del chatbot de Laura
+
+on:
+  push:
+    branches: [main]   # cada push a main despliega
+  pull_request:
+    branches: [main]   # cada pull request hacia main se revisa
+  workflow_dispatch:   # y también un botón "Run workflow" en la pestaña Actions
+
+permissions:
+  id-token: write   # permiso para pedirle a GitHub el pase OIDC
+  contents: read    # permiso para leer el código del repositorio
+
+concurrency:
+  group: chatbot-de-laura   # un solo pipeline a la vez: el que llega después espera su turno
+  cancel-in-progress: false
+
+# ======================= PARÁMETROS ===================================
+env:
+  CUENTA: ${{ vars.AWS_ACCOUNT_ID }}                                         # tu número de cuenta (variable del repositorio)
+  REGION: us-east-1                                                          # la región de todo el lab
+  BUCKET_ESTADO: chat-estado-${{ vars.AWS_ACCOUNT_ID }}                      # el bucket del estado (lo creó el bootstrap)
+  ROL_PLAN: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/tienda-chat-plan    # el rol de los pull request: solo mirar
+  ROL_APPLY: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/tienda-chat-apply  # el rol de main: desplegar
+  TERRAFORM_VERSION: "1.14.8"
+  PREGUNTA_DE_PRUEBA: "¿Hacen envíos a Bogotá?"                              # lo que el pipeline le pregunta a Lau en vivo
+
+jobs:
+  # ---------------------------------------------------------------- PULL REQUEST
+  revisar:
+    name: Revisar (pruebas + terraform plan)
+    if: github.event_name == 'pull_request'   # solo en los pull request: no despliega nada
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bajar el código del repositorio
+        uses: actions/checkout@v4
+
+      - name: ¿Está la variable AWS_ACCOUNT_ID?
+        run: |
+          [ -n "$CUENTA" ] || { echo "::error::Falta la variable AWS_ACCOUNT_ID: GitHub → Settings → Secrets and variables → Actions → Variables"; exit 1; }
+
+      - name: Probar el back (¿está bien escrito? ¿tiene instrucciones y catálogo?)
+        run: |
+          python3 -m py_compile back/app.py
+          test -s back/instrucciones.txt || { echo "::error::back/instrucciones.txt está vacío"; exit 1; }
+          test -s back/catalogo.txt || { echo "::error::back/catalogo.txt está vacío"; exit 1; }
+          echo "app.py compila · instrucciones: $(wc -l < back/instrucciones.txt) líneas · catálogo: $(wc -l < back/catalogo.txt) líneas"
+
+      - name: Probar el front
+        run: |
+          node --check front/app.js
+          grep -q 'config.js' front/index.html
+          grep -q 'app.js' front/index.html
+
+      - name: Entrar a AWS con OIDC (rol que solo puede mirar)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROL_PLAN }}
+          aws-region: ${{ env.REGION }}
+
+      - name: Instalar Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform init, fmt y validate (¿está bien escrito?)
+        working-directory: terraform
+        run: |
+          terraform init -input=false -backend-config="bucket=$BUCKET_ESTADO"
+          terraform fmt -check -diff -recursive   # revisa también terraform/back y terraform/front
+          terraform validate
+
+      - name: terraform plan (¿qué cambiaría?)
+        working-directory: terraform
+        run: |
+          terraform plan -input=false -no-color | tee plan.txt
+          {
+            echo "### 🔍 Plan de Terraform"
+            echo '```'
+            grep -E '^(Plan:|No changes)' plan.txt || true
+            echo '```'
+            echo '<details><summary>Ver el plan completo</summary>'
+            echo ''
+            echo '```'
+            sed -n '/Terraform will perform/,$p' plan.txt
+            echo '```'
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------- PUSH A MAIN
+  desplegar:
+    name: Desplegar (terraform apply + prueba en vivo)
+    if: github.event_name != 'pull_request'   # solo en main
+    runs-on: ubuntu-latest   # una máquina nueva de GitHub, solo para este trabajo
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - name: Bajar el código del repositorio
+        uses: actions/checkout@v4
+
+      - name: ¿Está la variable AWS_ACCOUNT_ID?
+        run: |
+          [ -n "$CUENTA" ] || { echo "::error::Falta la variable AWS_ACCOUNT_ID: GitHub → Settings → Secrets and variables → Actions → Variables"; exit 1; }
+
+      - name: Probar el back antes de desplegar
+        working-directory: .
+        run: |
+          python3 -m py_compile back/app.py
+          test -s back/instrucciones.txt && test -s back/catalogo.txt
+
+      - name: Entrar a AWS con OIDC (sin llaves)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROL_APPLY }}
+          aws-region: ${{ env.REGION }}
+
+      - name: ¿Quién soy en AWS?
+        run: aws sts get-caller-identity --query Arn --output text
+
+      - name: Instalar Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform init (el estado está en S3)
+        run: terraform init -input=false -backend-config="bucket=$BUCKET_ESTADO"
+
+      - name: terraform apply (terraform/back y terraform/front)
+        run: terraform apply -input=false -auto-approve
+
+      - name: Las direcciones
+        id: salidas
+        run: |
+          echo "tienda=$(terraform output -raw tu_tienda)" >> "$GITHUB_OUTPUT"
+          echo "back=$(terraform output -raw tu_back)" >> "$GITHUB_OUTPUT"
+          echo "modelo=$(terraform output -raw el_modelo)" >> "$GITHUB_OUTPUT"
+
+      - name: Prueba en vivo · ¿abre la tienda?
+        env:
+          TIENDA: ${{ steps.salidas.outputs.tienda }}
+        run: |
+          for intento in $(seq 1 12); do
+            codigo=$(curl -s -o /dev/null -w '%{http_code}' "$TIENDA")
+            if [ "$codigo" = "200" ] && curl -s "$TIENDA/config.js" | grep -q CHAT_URL; then
+              echo "la tienda abre (200) y tiene su config.js"; exit 0
+            fi
+            echo "todavía no abre ($codigo)… intento $intento de 12"; sleep 10
+          done
+          echo "::error::La tienda no abrió en 2 minutos"; exit 1
+
+      - name: Prueba en vivo · ¿Lau responde?
+        env:
+          BACK: ${{ steps.salidas.outputs.back }}
+        run: |
+          pregunta="$PREGUNTA_DE_PRUEBA"
+          for intento in $(seq 1 6); do
+            curl -s -X POST "$BACK" -H 'content-type: application/json' \
+              -d "{\"mensajes\":[{\"rol\":\"user\",\"texto\":\"$pregunta\"}]}" -o respuesta.json || true
+            if python3 -c 'import json,sys; sys.exit(0 if json.load(open("respuesta.json")).get("texto") else 1)' 2>/dev/null; then
+              python3 - "$pregunta" >> "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json, sys
+          r = json.load(open("respuesta.json"))
+          print(f"### 💬 Lau respondió en vivo ({r['ms']} ms · {r['tokens']['entrada']} tokens de entrada, {r['tokens']['salida']} de salida)")
+          print(f"> **Cliente:** {sys.argv[1]}")
+          print(">")
+          print("> **Lau:** " + r["texto"].replace("\n", "\n> "))
+          PY
+              cat respuesta.json; echo; exit 0
+            fi
+            echo "Lau todavía no responde: $(cat respuesta.json 2>/dev/null)… intento $intento de 6"; sleep 10
+          done
+          echo "::error::Lau no respondió. Último mensaje: $(cat respuesta.json 2>/dev/null)"; exit 1
+
+      - name: Listo
+        env:
+          TIENDA: ${{ steps.salidas.outputs.tienda }}
+          MODELO: ${{ steps.salidas.outputs.modelo }}
+        run: |
+          echo "Tienda desplegada → $TIENDA"
+          echo "### 🛍️ Tu tienda con Lau: $TIENDA" >> "$GITHUB_STEP_SUMMARY"
+          echo "Modelo: $MODELO" >> "$GITHUB_STEP_SUMMARY"
