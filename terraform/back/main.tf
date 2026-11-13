@@ -19,9 +19,9 @@ variable "codigo" {
 # El modelo de Bedrock: el mismo ID que viste en la consola (Catálogo de modelos)
 variable "modelo" {
   type    = string
-  default = "amazon.nova-lite-v1:0" # más barato y rápido: amazon.nova-micro-v1:0
+  default = "amazon.nova-v1:0" # más barato y rápido: amazon.nova-micro-v1:0
 }
-
+g
 # Temperatura: 0 = siempre la respuesta más probable · 1 = más variada y creativa
 variable "temperatura" {
   type    = number
